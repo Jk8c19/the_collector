@@ -12,6 +12,7 @@ docker run \
   -e webdav_uri="" \
   -e webdav_user="" \
   -e webdav_pass="" \
+  -e hc_url="" \
   jk8c19/the_collector:latest
 ```
 
@@ -30,3 +31,4 @@ WebDAV upload was intended for use with Nextcloud and is only tested for this ap
 | webdav_uri | path to put image to | N
 | webdav_user | webdav username | N
 | webdav_pass | webdav application password | N
+| hc_url | Healthchecks URL to ping | N

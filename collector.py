@@ -22,6 +22,17 @@ webdav_user = environ.get('webdav_user')
 webdav_pass = environ.get('webdav_pass')
 
 
+def ping_hc(suffix):
+    # ping Health Checks if rnv variable set
+    if environ.get('hc_url') is not None:
+        hc_url = environ['hc_url']
+        try:
+            logging.info("Sending Health Checks ping")
+            requests.get(f"{hc_url}/{suffix}", timeout=10)
+        except requests.RequestException as e:
+            # Log ping failure here...
+            logging.error("Ping failed: %s" % e)
+
 def search_subreddit(qty):
     feed = feedparser.parse('https://reddit.com/r/'+subreddit+'.rss')
     entries = []
@@ -41,6 +52,7 @@ def post_discord_message(webhook_uri, message):
     try:
         result.raise_for_status()
     except requests.exceptions.HTTPError as err:
+        ping_hc("fail")
         logging.warning(err)
     else:
         logging.info("Successfully shitposted!")
@@ -75,10 +87,12 @@ def upload_webdav(file_uri, subreddit):
         result.raise_for_status()
         logging.info(f"Upload of {file_name[0]} complete")
     except requests.exceptions.HTTPError as err:
+        ping_hc("fail")
         logging.warning(err)
     
     remove(file_name[0])
     logging.debug(f"Deleted {file_name[0]}")
+
 
 if webdav_uri == None:
     webdav = False
@@ -92,6 +106,9 @@ else:
 
 logging.basicConfig(stream=sys.stdout, level=logging_level)
 logging.info("Starting the_collector")
+
+ping_hc("start")
+
 logging.debug("\t- Subreddit: {}".format(subreddit))
 logging.debug("\t- Quantity: {}".format(post_qty))
 logging.debug("\t- Logging level: {}".format(environ['logging_level']))
@@ -112,4 +129,5 @@ for post in results:
     if webdav == True:
         upload_webdav(post, subreddit)
 
+ping_hc("")
 logging.info("We're done here")
