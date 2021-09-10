@@ -61,7 +61,7 @@ def search_subreddit(qty):
 def post_discord_message(webhook_url, message):
     data = {"content": message}
 
-    result = requests.post(webhook_url, json=data)
+    result = requests.post(webhook_url, json=data, headers={'User-agent': 'the_collector'})
 
     try:
         result.raise_for_status()
