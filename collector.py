@@ -15,9 +15,9 @@ logging_level = getattr(logging, environ['logging_level'].upper())
 subreddit = environ['subreddit']
 post_qty = int(environ['post_qty'])
 
-webhook_uri = environ.get('webhook_uri')
+webhook_url = environ.get('webhook_url')
 
-webdav_uri = environ.get('webdav_uri')
+webdav_url = environ.get('webdav_url')
 webdav_user = environ.get('webdav_user')
 webdav_pass = environ.get('webdav_pass')
 
@@ -58,10 +58,10 @@ def search_subreddit(qty):
                 entries.append(link.group())
     return entries
 
-def post_discord_message(webhook_uri, message):
+def post_discord_message(webhook_url, message):
     data = {"content": message}
 
-    result = requests.post(webhook_uri, json=data)
+    result = requests.post(webhook_url, json=data)
 
     try:
         result.raise_for_status()
@@ -72,12 +72,12 @@ def post_discord_message(webhook_uri, message):
         logging.info("Successfully shitposted!")
         logging.debug(data)
 
-def upload_webdav(file_uri):
+def upload_webdav(file_url):
 
-    file_name = re.findall(r"https:\/\/.*\/([a-zA-Z0-9.]*)", file_uri)
-    file_type = re.findall(r"https:\/\/.*\/.*\.([a-z]*)", file_uri)
-    logging.debug(f"From {file_uri} found {file_name[0]}")
-    result = requests.get(file_uri)
+    file_name = re.findall(r"https:\/\/.*\/([a-zA-Z0-9.]*)", file_url)
+    file_type = re.findall(r"https:\/\/.*\/.*\.([a-z]*)", file_url)
+    logging.debug(f"From {file_url} found {file_name[0]}")
+    result = requests.get(file_url)
 
     file = open(file_name[0], "wb")
     file.write(result.content)
@@ -91,11 +91,11 @@ def upload_webdav(file_uri):
         logging.info("No clue what this filetype is, eject!")
         sys.exit()
 
-    uri = f"{webdav_uri}/{file_name[0]}"
-    logging.debug(uri)
+    url = f"{webdav_url}/{file_name[0]}"
+    logging.debug(url)
 
     header = {"content-type": content_type}
-    result = requests.put(uri, data=open(file_name[0], "rb"), headers=header, auth=(webdav_user, webdav_pass))
+    result = requests.put(url, data=open(file_name[0], "rb"), headers=header, auth=(webdav_user, webdav_pass))
 
     try:
         result.raise_for_status()
@@ -108,12 +108,12 @@ def upload_webdav(file_uri):
     logging.debug(f"Deleted {file_name[0]}")
 
 
-if webdav_uri == None:
+if webdav_url == None:
     webdav = False
 else:
     webdav = True
 
-if webhook_uri == None:
+if webhook_url == None:
     webhook = False
 else:
     webhook = True
@@ -127,9 +127,9 @@ logging.debug("\t- Subreddit: {}".format(subreddit))
 logging.debug("\t- Quantity: {}".format(post_qty))
 logging.debug("\t- Logging level: {}".format(environ['logging_level']))
 if webhook == True:
-    logging.debug("\t- Webhook URI: {}".format(webhook_uri))
+    logging.debug("\t- Webhook url: {}".format(webhook_url))
 if webdav == True:
-    logging.debug("\t- WebDAV URI: {}".format(webdav_uri))
+    logging.debug("\t- WebDAV url: {}".format(webdav_url))
     logging.debug("\t- WebDAV User: {}".format(webdav_user))
     logging.debug("\t- WebDAV Pass: {}".format(webdav_pass))
 
@@ -139,7 +139,7 @@ for post in results:
     logging.info(f"    - {post}")
 for post in results:
     if webhook == True:
-        post_discord_message(webhook_uri, post)
+        post_discord_message(webhook_url, post)
         sleep(1)
     
     if webdav == True:
