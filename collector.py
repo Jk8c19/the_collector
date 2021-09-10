@@ -40,7 +40,7 @@ def search_subreddit(qty):
         if x != (1,2):
             data = feed.entries[x].content[0].value
             link = re.search(r"(https:\/\/i.redd.it\/\w*.jpg|https:\/\/i.redd.it\/\w*.png|https:\/\/i.imgur.com/\w*.jpg|https:\/\/i.imgur.com/\w*.png)", data)
-            gallery = re.search(r"(https://www\.reddit\.com/r/.*/comments/.*)/\">.*https://www\.reddit\.com/gallery/", data)
+            gallery = re.search(r"https://www\.reddit\.com/gallery/.*href=\"(https://www\.reddit\.com/r/.*/comments/.*)/\">", data)
 
             if gallery != None:
                 try:
