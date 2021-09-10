@@ -36,10 +36,24 @@ def ping_hc(suffix):
 def search_subreddit(qty):
     feed = feedparser.parse('https://reddit.com/r/'+subreddit+'.rss')
     entries = []
-    for x in range(post_qty+2):
+    for x in range(qty+2):
         if x != (1,2):
             data = feed.entries[x].content[0].value
             link = re.search(r"(https:\/\/i.redd.it\/\w*.jpg|https:\/\/i.redd.it\/\w*.png|https:\/\/i.imgur.com/\w*.jpg|https:\/\/i.imgur.com/\w*.png)", data)
+            gallery = re.search(r"(https://www\.reddit\.com/r/.*/comments/.*)/\">.*https://www\.reddit\.com/gallery/", data)
+
+            if gallery != None:
+                try:
+                    results = requests.get(gallery.group(1)+'.json', timeout=10, headers={'User-agent': 'the_collector'})
+                except requests.RequestException as e:
+                    logging.error("Collecting gallery JSON failed: %s" % e)
+
+                for listing in results.json():
+                    for child in listing['data']['children']:
+                        if 'media_metadata' in child['data']:
+                            for post in child['data']['media_metadata']:
+                                entries.append(child['data']['media_metadata'][post]['s']['u'].replace('&amp;','&'))
+
             if link != None:
                 entries.append(link.group())
     return entries
@@ -58,10 +72,10 @@ def post_discord_message(webhook_uri, message):
         logging.info("Successfully shitposted!")
         logging.debug(data)
 
-def upload_webdav(file_uri, subreddit):
+def upload_webdav(file_uri):
 
     file_name = re.findall(r"https:\/\/.*\/([a-zA-Z0-9.]*)", file_uri)
-    file_type = re.findall(r"https:\/\/.*\/.*\.(.*)", file_uri)
+    file_type = re.findall(r"https:\/\/.*\/.*\.([a-z]*)", file_uri)
     logging.debug(f"From {file_uri} found {file_name[0]}")
     result = requests.get(file_uri)
 
@@ -120,14 +134,16 @@ if webdav == True:
     logging.debug("\t- WebDAV Pass: {}".format(webdav_pass))
 
 results = search_subreddit(post_qty)
-logging.info(f"Collected {len(results)} image links")
+logging.info(f"Collected {len(results)} image links:")
+for post in results:
+    logging.info(f"    - {post}")
 for post in results:
     if webhook == True:
         post_discord_message(webhook_uri, post)
         sleep(1)
     
     if webdav == True:
-        upload_webdav(post, subreddit)
+        upload_webdav(post)
 
 ping_hc("")
 logging.info("We're done here")
