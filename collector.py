@@ -13,6 +13,7 @@ from os import remove
 logging_level = getattr(logging, environ['logging_level'].upper())
 
 subreddit = environ['subreddit']
+subreddit_flair = environ['subreddit_flair']
 post_qty = int(environ['post_qty'])
 
 webhook_url = environ.get('webhook_url')
@@ -34,12 +35,30 @@ def ping_hc(suffix):
             logging.error("Ping failed: %s" % e)
 
 def search_subreddit(qty):
-    feed = feedparser.parse('https://reddit.com/r/'+subreddit+'.rss')
+    feed_collected = False
+    feed_attempts = 0
+    while feed_collected != True:
+        if subreddit_flair == "none":
+            feed = feedparser.parse('https://reddit.com/r/'+subreddit+'.rss')
+        else:
+            feed = feedparser.parse('https://reddit.com/r/'+subreddit+'/search.rss?q=flair%3A'+subreddit_flair+'&restrict_sr=on&include_over_18=on&sort=hot&t=all')
+
+        if feed['bozo'] == False:
+            feed_collected = True
+        else:
+            feed_attempts += 1
+            if feed_attempts > 5:
+                logging.error("Unable to obtain RSS feed after 5 attempts.")
+                sys.exit()
+            logging.info("No RSS data obtained, retrying...")
+            sleep(5)
+
     entries = []
-    for x in range(qty+2):
-        if x != (1,2):
+    for x in range(qty):
+        if subreddit_flair != "none" or subreddit_flair == "none" and x != 1:
             data = feed.entries[x].content[0].value
-            link = re.search(r"(https:\/\/i.redd.it\/\w*.jpg|https:\/\/i.redd.it\/\w*.png|https:\/\/i.imgur.com/\w*.jpg|https:\/\/i.imgur.com/\w*.png)", data)
+            logging.debug(f"Searching for links from:\n{data}")
+            link = re.search(r"(https:\/\/i\.redd\.it\/\w*\.jpg|https:\/\/i\.redd\.it\/\w*\.png|https:\/\/i\.imgur\.com/\w*\.jpg|https:\/\/i\.imgur\.com/\w*\.png)", data)
             gallery = re.search(r"https://www\.reddit\.com/gallery/.*href=\"(https://www\.reddit\.com/r/.*/comments/.*)/\">", data)
 
             if gallery != None:
@@ -76,7 +95,13 @@ def upload_webdav(file_url):
 
     file_name = re.findall(r"https:\/\/.*\/([a-zA-Z0-9.]*)", file_url)
     file_type = re.findall(r"https:\/\/.*\/.*\.([a-z]*)", file_url)
-    logging.debug(f"From {file_url} found {file_name[0]}")
+    logging.debug(f"From {file_url} found name:  {file_name}")
+    logging.debug(f"From {file_url} found type: {file_type}")
+
+    if not file_type or not file_name:
+        logging.error(f"No vaild file found from url: {file_url}")
+        return
+
     result = requests.get(file_url)
 
     file = open(file_name[0], "wb")
@@ -87,6 +112,8 @@ def upload_webdav(file_url):
         content_type = "image/jpeg"
     elif file_type[0] == "png":
         content_type = "image/png"
+    elif file_type[0] == "gif":
+        content_type = "image/gif"
     else:
         logging.info("No clue what this filetype is, eject!")
         sys.exit()
@@ -108,20 +135,26 @@ def upload_webdav(file_url):
     logging.debug(f"Deleted {file_name[0]}")
 
 
+logging.basicConfig(stream=sys.stdout, level=logging_level)
+logging.info("Starting the_collector")
+
 if webdav_url == None:
+    logging.info("No url webdav passed, wont upload.")
     webdav = False
 else:
     webdav = True
 
 if webhook_url == None:
+    logging.info("No url webhook passed, wont upload.")
     webhook = False
 else:
     webhook = True
 
-logging.basicConfig(stream=sys.stdout, level=logging_level)
-logging.info("Starting the_collector")
-
 ping_hc("start")
+
+if post_qty > 25:
+    logging.info("Search qty cannot exceed 25, limiting.")
+    post_qty = 25
 
 logging.debug("\t- Subreddit: {}".format(subreddit))
 logging.debug("\t- Quantity: {}".format(post_qty))
@@ -134,6 +167,7 @@ if webdav == True:
     logging.debug("\t- WebDAV Pass: {}".format(webdav_pass))
 
 results = search_subreddit(post_qty)
+
 logging.info(f"Collected {len(results)} image links:")
 for post in results:
     logging.info(f"    - {post}")

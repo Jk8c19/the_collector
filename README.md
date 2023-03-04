@@ -6,6 +6,7 @@ docker run \
   --name=the_collector \
   --rm \
   -e subreddit="" \
+  -e subreddit_flair="" \
   -e webhook_url="" \
   -e post_qty=1 \
   -e logging_level="info" \
@@ -25,6 +26,7 @@ WebDAV upload was intended for use with Nextcloud and is only tested for this ap
 | Parameter | Function | Req | Default |
 |-|-|-|-|
 | subreddit | name of a reddit subreddit | Y
+| subreddit_flair | flair to search on in the subreddit | N | mobile
 | webhook_url | full url to discord webhook | N
 | post_qty | amount of posts to gather | N | 1 |
 | logging_level | takes in logging level | N | info |

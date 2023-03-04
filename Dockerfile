@@ -1,6 +1,7 @@
 FROM python:3
 
 ENV post_qty=1
+ENV subreddit_flair=mobile
 ENV logging_level=info
 
 ADD collector.py /
