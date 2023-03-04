@@ -1,4 +1,4 @@
-FROM python:3
+FROM python:3.8-slim-buster
 
 ENV post_qty=1
 ENV subreddit_flair=mobile
