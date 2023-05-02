@@ -7,6 +7,7 @@ import sys
 import logging
 import re
 from time import sleep
+from datetime import datetime
 from os import environ
 from os import remove
 
@@ -118,7 +119,10 @@ def upload_webdav(file_url):
         logging.info("No clue what this filetype is, eject!")
         sys.exit()
 
-    url = f"{webdav_url}/{file_name[0]}"
+    year = datetime.now().year
+    month = f"{datetime.now().month:{0}{2}}"
+
+    url = f"{webdav_url}/{year}/{month}/{file_name[0]}"
     logging.debug(url)
 
     header = {"content-type": content_type}
