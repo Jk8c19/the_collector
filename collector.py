@@ -88,6 +88,7 @@ def post_discord_message(webhook_url, message):
     except requests.exceptions.HTTPError as err:
         ping_hc("fail")
         logging.warning(err)
+        exit
     else:
         logging.info("Successfully shitposted!")
         logging.debug(data)
@@ -128,12 +129,27 @@ def upload_webdav(file_url):
     header = {"content-type": content_type}
     result = requests.put(url, data=open(file_name[0], "rb"), headers=header, auth=(webdav_user, webdav_pass))
 
+    if result.status_code == 404:
+        logging.info("Initial upload failed due to missing folder, creating one now")
+        session = requests.session()
+        session.auth = (webdav_user, webdav_pass)
+        result = session.request(method='MKCOL', url=f"{webdav_url}/{year}/{month}")
+
+        if result.status_code == 201:
+            logging.info("New folder created, retrying upload")
+            result = requests.put(url, data=open(file_name[0], "rb"), headers=header, auth=(webdav_user, webdav_pass))
+        else:
+            ping_hc("fail")
+            logging.warning("Could not create new folder!")
+            exit
+
     try:
         result.raise_for_status()
         logging.info(f"Upload of {file_name[0]} complete")
     except requests.exceptions.HTTPError as err:
         ping_hc("fail")
         logging.warning(err)
+        exit
     
     remove(file_name[0])
     logging.debug(f"Deleted {file_name[0]}")
