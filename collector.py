@@ -68,11 +68,11 @@ def search_subreddit(qty):
                 except requests.RequestException as e:
                     logging.error("Collecting gallery JSON failed: %s" % e)
 
-                for listing in results.json():
-                    for child in listing['data']['children']:
-                        if 'media_metadata' in child['data']:
-                            for post in child['data']['media_metadata']:
-                                entries.append(child['data']['media_metadata'][post]['s']['u'].replace('&amp;','&'))
+                listing = results.json()[0]
+                for child in listing['data']['children']:
+                    if 'media_metadata' in child['data']:
+                        for post in child['data']['media_metadata']:
+                            entries.append(child['data']['media_metadata'][post]['s']['u'].replace('&amp;','&'))
 
             if link != None:
                 entries.append(link.group())
