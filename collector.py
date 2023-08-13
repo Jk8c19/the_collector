@@ -40,9 +40,9 @@ def search_subreddit(qty):
     feed_attempts = 0
     while feed_collected != True:
         if subreddit_flair == "none":
-            feed = feedparser.parse('https://reddit.com/r/'+subreddit+'.rss')
+            feed = feedparser.parse('https://reddit.com/r/'+subreddit+'/.rss', agent="the_collector/1.0")
         else:
-            feed = feedparser.parse('https://reddit.com/r/'+subreddit+'/search.rss?q=flair%3A'+subreddit_flair+'&restrict_sr=on&include_over_18=on&sort=hot&t=all')
+            feed = feedparser.parse('https://reddit.com/r/'+subreddit+'/search.rss?q=flair%3A'+subreddit_flair+'&restrict_sr=on&include_over_18=on&sort=hot&t=all', agent="the_collector/1.0")
 
         if feed['bozo'] == False:
             feed_collected = True
@@ -55,11 +55,11 @@ def search_subreddit(qty):
             sleep(5)
 
     entries = []
-    for x in range(qty):
-        if subreddit_flair != "none" or subreddit_flair == "none" and x != 1:
+    for x in range(qty+1):
+        if subreddit_flair != "none" or subreddit_flair == "none" and x != 0:
             data = feed.entries[x].content[0].value
             logging.debug(f"Searching for links from:\n{data}")
-            link = re.search(r"(https:\/\/i\.redd\.it\/\w*\.jpg|https:\/\/i\.redd\.it\/\w*\.png|https:\/\/i\.imgur\.com/\w*\.jpg|https:\/\/i\.imgur\.com/\w*\.png)", data)
+            link = re.search(r"(https:\/\/i\.redd\.it\/\w*\.jpg|https:\/\/i\.redd\.it\/\w*\.png|https:\/\/i\.imgur\.com\/\w*\.jpg|https:\/\/i\.imgur\.com\/\w*\.png|https:\/\/i\.redd\.it\/\w*\.gif)", data)
             gallery = re.search(r"https://www\.reddit\.com/gallery/.*href=\"(https://www\.reddit\.com/r/.*/comments/.*)/\">", data)
 
             if gallery != None:
@@ -172,9 +172,9 @@ else:
 
 ping_hc("start")
 
-if post_qty > 25:
-    logging.info("Search qty cannot exceed 25, limiting.")
-    post_qty = 25
+if post_qty > 24:
+    logging.info("Search qty cannot exceed 24, limiting.")
+    post_qty = 24
 
 logging.debug("\t- Subreddit: {}".format(subreddit))
 logging.debug("\t- Quantity: {}".format(post_qty))
