@@ -12,6 +12,7 @@ from os import environ
 from os import remove
 
 logging_level = getattr(logging, environ['logging_level'].upper())
+fail_flag = False
 
 subreddit = environ['subreddit']
 subreddit_flair = environ['subreddit_flair']
@@ -24,16 +25,27 @@ webdav_user = environ.get('webdav_user')
 webdav_pass = environ.get('webdav_pass')
 
 
-def ping_hc(suffix):
-    # ping Health Checks if rnv variable set
+def ping_hc(suffix, data=None):
+    # Prevent sucess from being sent
+    global fail_flag
+    if suffix == "fail":
+        fail_flag = True
+    logging.debug(f"fail_flag: {fail_flag}")
+
+    if fail_flag == True and suffix == "":
+        logging.info("Skipping success ping")
+        return
+
+
+    # ping Health Checks if env variable set
     if environ.get('hc_url') is not None:
         hc_url = environ['hc_url']
         try:
             logging.info("Sending Health Checks ping")
-            requests.get(f"{hc_url}/{suffix}", timeout=10)
+            requests.post(f"{hc_url}/{suffix}", timeout=10, data=data)
         except requests.RequestException as e:
             # Log ping failure here...
-            logging.error("Ping failed: %s" % e)
+            logging.error("Health Checks ping failed: %s" % e)
 
 def search_subreddit(qty):
     feed_collected = False
@@ -58,24 +70,36 @@ def search_subreddit(qty):
     for x in range(qty+1):
         if subreddit_flair != "none" or subreddit_flair == "none" and x != 0:
             data = feed.entries[x].content[0].value
-            logging.debug(f"Searching for links from:\n{data}")
-            link = re.search(r"(https:\/\/i\.redd\.it\/\w*\.jpg|https:\/\/i\.redd\.it\/\w*\.png|https:\/\/i\.imgur\.com\/\w*\.jpg|https:\/\/i\.imgur\.com\/\w*\.png|https:\/\/i\.redd\.it\/\w*\.gif)", data)
+            logging.debug(f"Searching for links from:\n{data}\n")
+            link = re.search(r"(https:\/\/i\.redd\.it\/\w*\.(jpg|jpeg|png|gif)|https:\/\/i\.imgur\.com\/\w*\.(jpg|jpeg|png|gif))", data)
             gallery = re.search(r"https://www\.reddit\.com/gallery/.*href=\"(https://www\.reddit\.com/r/.*/comments/.*)/\">", data)
 
             if gallery != None:
+                logging.debug(f"Fetching links from gallery '{gallery.group(1)}.json':")
                 try:
                     results = requests.get(gallery.group(1)+'.json', timeout=10, headers={'User-agent': 'the_collector'})
                 except requests.RequestException as e:
                     logging.error("Collecting gallery JSON failed: %s" % e)
+                
+                if results.status_code != 200:
+                    logging.error(f"Failed to get gallery links, status code: {results.status_code} We're probably being blocked...")
+                    ping_hc("fail", f"Reddit gallery returned status code: {results.status_code}\nWe're probably being blocked...")
+                    continue
 
+                logging.debug(f"{results}\n")
                 listing = results.json()[0]
+                
+                logging.debug(f"Parsing gallery links")
                 for child in listing['data']['children']:
                     if 'media_metadata' in child['data']:
+                        logging.debug(f"Found {len(child['data']['media_metadata'])}")
                         for post in child['data']['media_metadata']:
                             entries.append(child['data']['media_metadata'][post]['s']['u'].replace('&amp;','&'))
 
             if link != None:
                 entries.append(link.group())
+
+    logging.debug(f"Found {len(entries)} links")
     return entries
 
 def post_discord_message(webhook_url, message):
@@ -86,9 +110,9 @@ def post_discord_message(webhook_url, message):
     try:
         result.raise_for_status()
     except requests.exceptions.HTTPError as err:
-        ping_hc("fail")
-        logging.warning(err)
-        exit
+        ping_hc("fail", err)
+        logging.error(err)
+        sys.exit()
     else:
         logging.info("Successfully shitposted!")
         logging.debug(data)
@@ -110,14 +134,15 @@ def upload_webdav(file_url):
     file.write(result.content)
     file.close()
 
-    if file_type[0] == "jpg":
+    if file_type[0] == "jpg" or file_type[0] == "jpeg":
         content_type = "image/jpeg"
     elif file_type[0] == "png":
         content_type = "image/png"
     elif file_type[0] == "gif":
         content_type = "image/gif"
     else:
-        logging.info("No clue what this filetype is, eject!")
+        ping_hc("fail", f"Unknown content type: {content_type}")
+        logging.error("No clue what this filetype is, eject!")
         sys.exit()
 
     year = datetime.now().year
@@ -139,17 +164,17 @@ def upload_webdav(file_url):
             logging.info("New folder created, retrying upload")
             result = requests.put(url, data=open(file_name[0], "rb"), headers=header, auth=(webdav_user, webdav_pass))
         else:
-            ping_hc("fail")
-            logging.warning("Could not create new folder!")
-            exit
+            ping_hc("fail", f"Failed while creating '{webdav_url}/{year}/{month}'")
+            logging.error("Could not create new folder!")
+            sys.exit()
 
     try:
         result.raise_for_status()
         logging.info(f"Upload of {file_name[0]} complete")
     except requests.exceptions.HTTPError as err:
-        ping_hc("fail")
+        ping_hc("fail", err)
         logging.warning(err)
-        exit
+        sys.exit()
     
     remove(file_name[0])
     logging.debug(f"Deleted {file_name[0]}")
@@ -191,6 +216,7 @@ results = search_subreddit(post_qty)
 logging.info(f"Collected {len(results)} image links:")
 for post in results:
     logging.info(f"    - {post}")
+
 for post in results:
     if webhook == True:
         post_discord_message(webhook_url, post)
@@ -199,5 +225,8 @@ for post in results:
     if webdav == True:
         upload_webdav(post)
 
-ping_hc("")
 logging.info("We're done here")
+if fail_flag == True:
+    logging.warning("Posting completed with some errors, please check.")
+
+ping_hc("")
