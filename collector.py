@@ -6,6 +6,7 @@ import requests
 import sys
 import logging
 import re
+import json
 from time import sleep
 from datetime import datetime
 from os import environ
@@ -52,9 +53,11 @@ def search_subreddit(qty):
     feed_attempts = 0
     while feed_collected != True:
         if subreddit_flair == "none":
-            feed = feedparser.parse('https://reddit.com/r/'+subreddit+'/.rss', agent="the_collector/1.0")
+            feed = feedparser.parse('https://old.reddit.com/r/'+subreddit+'/.rss', agent="the_collector/1.0")
         else:
-            feed = feedparser.parse('https://reddit.com/r/'+subreddit+'/search.rss?q=flair%3A'+subreddit_flair+'&restrict_sr=on&include_over_18=on&sort=hot&t=all', agent="the_collector/1.0")
+            feed = feedparser.parse('https://old.reddit.com/r/'+subreddit+'/search.rss?q=flair%3A'+subreddit_flair+'&restrict_sr=on&include_over_18=on&sort=hot&t=all', agent="the_collector/1.0")
+
+        logging.debug(json.dumps(feed, indent=4, default=str))
 
         if feed['bozo'] == False:
             feed_collected = True
@@ -62,6 +65,7 @@ def search_subreddit(qty):
             feed_attempts += 1
             if feed_attempts > 5:
                 logging.error("Unable to obtain RSS feed after 5 attempts.")
+                ping_hc("fail", f"Unable to obtain RSS feed after 5 attempts:\n{feed}")
                 sys.exit()
             logging.info("No RSS data obtained, retrying...")
             sleep(5)
