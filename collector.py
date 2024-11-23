@@ -53,9 +53,12 @@ def search_subreddit(qty):
     feed_attempts = 0
     while feed_collected != True:
         if subreddit_flair == "none":
-            feed = feedparser.parse('https://old.reddit.com/r/'+subreddit+'/.rss', agent="the_collector/1.0")
+            feed_url = 'https://old.reddit.com/r/'+subreddit+'/.rss'
         else:
-            feed = feedparser.parse('https://old.reddit.com/r/'+subreddit+'/search.rss?q=flair%3A'+subreddit_flair+'&restrict_sr=on&include_over_18=on&sort=hot&t=all', agent="the_collector/1.0")
+            feed_url = 'https://old.reddit.com/r/'+subreddit+'/search.rss?q=flair%3A'+subreddit_flair+'&restrict_sr=on&include_over_18=on&sort=hot&t=all'
+
+        feed_data = requests.get(feed_url, headers={'User-Agnet': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:132.0) Gecko/20100101 Firefox/132.0'})
+        feed = feedparser.parse(feed_data.text)
 
         logging.debug(json.dumps(feed, indent=4, default=str))
 
